@@ -3,10 +3,35 @@
 
 <head>
     <title>Ricorrenze</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%2210 0 100 100%22><text y=%22.90em%22 font-size=%2290%22>📅</text></svg>"></link>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
+        :root {
+            color-scheme: light dark;
+            --text: #000;
+            --bg: #fff;
+            --green: #4CAF50;
+            --hover-green: #45a049;
+            --red: #af4c4c;
+            --hover-red: #a14545;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                color-scheme: dark light;
+                --text: #fff;
+                --bg: #000;
+                --green: #265929;
+                --hover-green: #214d23;
+                --red: #592626;
+                --hover-red: #4d2121;
+            }
+        }
+
         body {
             font-family: Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
         }
 
         table {
@@ -17,7 +42,7 @@
         table,
         th,
         td {
-            border: 1px solid black;
+            border: 1px solid var(--text);
         }
 
         th,
@@ -27,7 +52,7 @@
         }
 
         th {
-            background-color: #f2f2f2;
+            background-color: var(--bg);
         }
 
         .date-inputs {
@@ -47,7 +72,7 @@
 
         .cute-button {
             margin-top: 20px;
-            background-color: #4CAF50;
+            background-color: var(--green);
             border: none;
             color: white;
             padding: 10px 20px;
@@ -62,15 +87,15 @@
         }
 
         .cute-button:hover {
-            background-color: #45a049;
+            background-color: var(--hover-green);
         }
 
         .cute-button-red {
-            background-color: #af4c4c;
+            background-color: var(--red);
         }
 
         .cute-button-red:hover {
-            background-color: #a14545;
+            background-color: var(--hover-red);
         }
 
         .hidden {
@@ -98,8 +123,8 @@
             <td>{{ padZero .Day }}/{{ padZero .Month }}</td>
             <td><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
             <td class="actions">
-                <i class="fas fa-edit" title="Edit" onclick="editOccurrence('{{ .ID }}')"></i>
-                <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence('{{ .ID }}')"></i>
+                <i class="fas fa-edit" title="Modifica" onclick="editOccurrence('{{ .ID }}')"></i>
+                <i class="fas fa-trash-alt" title="Elimina" onclick="deleteOccurrence('{{ .ID }}')"></i>
             </td>
         </tr>
         {{ end }}
@@ -129,7 +154,6 @@
         function updateNoneRowDisplay() {
             const rows = mainTable.getElementsByTagName('tr');
             const l = rows.length
-            console.log(l);
             if (l === 2) {
                 noneRow.classList.remove(hiddenClass);
                 return;
@@ -241,6 +265,7 @@
                         return;
                     }
                     if (isNew) {
+                        cancelNewOccurrence();
                         mainTable.insertRow(-1).id = `occurrence-${id}`
                     }
                     updateRow(`occurrence-${id}`, response);
@@ -263,14 +288,12 @@
             addButton.classList.add(hiddenClass);
             saveButton.classList.remove(hiddenClass);
             cancelButton.classList.remove(hiddenClass);
-            console.log("hidden");
         }
 
         function showAddButton() {
             addButton.classList.remove(hiddenClass);
             saveButton.classList.add(hiddenClass);
             cancelButton.classList.add(hiddenClass);
-            console.log("shown");
         }
         
         function updateRow(rowElementId, response) {
