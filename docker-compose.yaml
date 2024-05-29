@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    image: ghcr.io/birabittoh/cameraman:main
+    container_name: cameraman
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    env_file:
+      - .env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - data:/data
+volumes:
+  data:

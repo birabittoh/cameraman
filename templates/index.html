@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ricorrenze</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .actions i {
+            cursor: pointer;
+        }
+        .add-row-button {
+            margin-top: 20px;
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            transition-duration: 0.4s;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+        .add-row-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    <script>
+        function submitForm(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+            const month = document.getElementById('month').value;
+            const day = document.getElementById('day').value;
+            const notify = document.getElementById('notify').checked;
+
+            const data = {
+                name: name,
+                description: description,
+                month: parseInt(month),
+                day: parseInt(day),
+                notify: notify
+            };
+
+            fetch('/occurrences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to add occurrence');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to add occurrence');
+            });
+        }
+
+        function deleteOccurrence(id) {
+            if (confirm('Are you sure you want to delete this occurrence?')) {
+                fetch(`/occurrences/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        alert('Failed to delete occurrence');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to delete occurrence');
+                });
+            }
+        }
+
+        function createInputFields(id, name, description, day, month, notify, isNew) {
+            return `
+                <td>${isNew ? '' : id}</td>
+                <td><input type="text" value="${name || ''}" id="${isNew ? 'new' : 'edit'}-name-${id}"></td>
+                <td><input type="text" value="${description || ''}" id="${isNew ? 'new' : 'edit'}-description-${id}"></td>
+                <td><input type="number" value="${day || ''}" id="${isNew ? 'new' : 'edit'}-day-${id}" min="1" max="31"> / <input type="number" value="${month || ''}" id="${isNew ? 'new' : 'edit'}-month-${id}" min="1" max="12"></td>
+                <td><input type="checkbox" id="${isNew ? 'new' : 'edit'}-notify-${id}" ${notify ? 'checked' : ''}></td>
+                <td class="actions">
+                    <i class="fas fa-save" title="Save" onclick="${isNew ? 'saveNewOccurrence()' : `saveOccurrence(${id})`}"></i>
+                    <i class="fas fa-times" title="Cancel" onclick="${isNew ? 'cancelNewOccurrence()' : `cancelEdit(${id}, '${name}', '${description}', ${day}, ${month}, ${notify})`}"></i>
+                </td>
+            `;
+        }
+
+        function editOccurrence(id) {
+            const row = document.getElementById(`occurrence-${id}`);
+            const cells = row.getElementsByTagName('td');
+
+            const name = cells[1].innerText;
+            const description = cells[2].innerText;
+            const [day, month] = cells[3].innerText.split('/');
+            const notify = cells[4].getElementsByTagName('input')[0].checked;
+
+            row.innerHTML = createInputFields(id, name, description, day, month, notify, false);
+        }
+
+        function cancelEdit(id, name, description, day, month, notify) {
+            const row = document.getElementById(`occurrence-${id}`);
+            row.innerHTML = `
+                <td>${id}</td>
+                <td>${name}</td>
+                <td>${description}</td>
+                <td>${day}/${month}</td>
+                <td><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
+                <td class="actions">
+                    <i class="fas fa-edit" title="Edit" onclick="editOccurrence(${id})"></i>
+                    <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence(${id})"></i>
+                </td>
+            `;
+        }
+
+        function saveOccurrence(id) {
+            const name = document.getElementById(`edit-name-${id}`).value;
+            const description = document.getElementById(`edit-description-${id}`).value;
+            const day = parseInt(document.getElementById(`edit-day-${id}`).value);
+            const month = parseInt(document.getElementById(`edit-month-${id}`).value);
+            const notify = document.getElementById(`edit-notify-${id}`).checked;
+
+            const updatedData = {
+                id: id,
+                name: name,
+                description: description,
+                month: month,
+                day: day,
+                notify: notify
+            };
+
+            fetch('/occurrences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updatedData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to update occurrence');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update occurrence');
+            });
+        }
+
+        function addNewOccurrenceRow() {
+            const table = document.querySelector('table');
+            const newRow = table.insertRow(-1);
+            newRow.id = 'new-occurrence';
+            newRow.innerHTML = createInputFields('new', '', '', '', '', true, true);
+        }
+
+        function saveNewOccurrence() {
+            const name = document.getElementById('new-name-new').value;
+            const description = document.getElementById('new-description-new').value;
+            const day = parseInt(document.getElementById('new-day-new').value);
+            const month = parseInt(document.getElementById('new-month-new').value);
+            const notify = document.getElementById('new-notify-new').checked;
+
+            const newData = {
+                name: name,
+                description: description,
+                month: month,
+                day: day,
+                notify: notify
+            };
+
+            fetch('/occurrences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to add occurrence');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to add occurrence');
+            });
+        }
+
+        function cancelNewOccurrence() {
+            const newRow = document.getElementById('new-occurrence');
+            newRow.parentNode.removeChild(newRow);
+        }
+    </script>
+</head>
+<body>
+    <h1>Ricorrenze</h1>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Descrizione</th>
+            <th>Data (gg/mm)</th>
+            <th>Notifica</th>
+            <th>Azioni</th>
+        </tr>
+        {{ range .Occurrences }}
+        <tr id="occurrence-{{ .ID }}">
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            <td>{{ .Description }}</td>
+            <td>{{ padZero .Day }}/{{ padZero .Month }}</td>
+            <td><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
+            <td class="actions">
+                <i class="fas fa-edit" title="Edit" onclick="editOccurrence('{{ .ID }}')"></i>
+                <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence('{{ .ID }}')"></i>
+            </td>
+        </tr>
+        {{ else }}
+        <tr>
+            <td colspan="6">Nessuna ricorrenza.</td>
+        </tr>
+        {{ end }}
+    </table>
+    <div style="margin-top: 10px; text-align: center;">
+        <button class="add-row-button" onclick="addNewOccurrenceRow()"><i class="fas fa-plus"></i> Aggiungi</button>
+    </div>
+
+    
+</body>
+</html>
