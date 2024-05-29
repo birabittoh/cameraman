@@ -30,6 +30,10 @@
             background-color: #f2f2f2;
         }
 
+        .small-input {
+            width: 32px;
+        }
+
         .actions i {
             cursor: pointer;
             padding-right: 5px;
@@ -71,7 +75,7 @@
 
 <body>
     <h1>Ricorrenze</h1>
-    <table>
+    <table id="main-table">
         <tr>
             <th>ID</th>
             <th>Nome</th>
@@ -92,11 +96,10 @@
                 <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence('{{ .ID }}')"></i>
             </td>
         </tr>
-        {{ else }}
-        <tr>
+        {{ end }}
+        <tr id="occurrence-none">
             <td colspan="6">Nessuna ricorrenza.</td>
         </tr>
-        {{ end }}
     </table>
     <div style="margin-top: 10px; text-align: center;">
         <button id="add-row-button" class="cute-button" onclick="addNewOccurrenceRow()">
@@ -109,48 +112,23 @@
         </button>
     </div>
 
-    
-    <script defer>
+    <script>
         const hiddenClass = 'hidden';
         const addButton = document.getElementById('add-row-button');
         const saveButton = document.getElementById('save-row-button');
         const cancelButton = document.getElementById('cancel-row-button');
+        const mainTable = document.getElementById('main-table');
+        const noneRow = document.getElementById('occurrence-none');
 
-        function submitForm(event) {
-            event.preventDefault();
-
-            const name = document.getElementById('name').value;
-            const description = document.getElementById('description').value;
-            const month = document.getElementById('month').value;
-            const day = document.getElementById('day').value;
-            const notify = document.getElementById('notify').checked;
-
-            const data = {
-                name: name,
-                description: description,
-                month: parseInt(month),
-                day: parseInt(day),
-                notify: notify
-            };
-
-            fetch('/occurrences', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-                .then(response => {
-                    if (response.ok) {
-                        window.location.reload();
-                    } else {
-                        alert('Failed to add occurrence');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to add occurrence');
-                });
+        function updateNoneRowDisplay() {
+            const rows = mainTable.getElementsByTagName('tr');
+            const l = rows.length
+            console.log(l);
+            if (l === 2) {
+                noneRow.classList.remove(hiddenClass);
+                return;
+            }
+            noneRow.classList.add(hiddenClass);
         }
 
         function deleteOccurrence(id) {
@@ -159,11 +137,14 @@
                     method: 'DELETE'
                 })
                     .then(response => {
-                        if (response.ok) {
-                            window.location.reload();
-                        } else {
+                        if (!response.ok) {
+                            console.error('Error:', response.status);
                             alert('Eliminazione fallita.');
+                            return;
                         }
+                        const deletedRow = document.getElementById(`occurrence-${id}`);
+                        deletedRow.parentElement.removeChild(deletedRow);
+                        updateNoneRowDisplay();
                     })
                     .catch(error => {
                         console.error('Error:', error);
@@ -195,7 +176,7 @@
                 <td>${isNew ? '' : id}</td>
                 <td><input type="text" value="${name || ''}" id="${isNew ? 'new' : 'edit'}-name-${id}"></td>
                 <td><input type="text" value="${description || ''}" id="${isNew ? 'new' : 'edit'}-description-${id}"></td>
-                <td><input type="number" value="${day || ''}" id="${isNew ? 'new' : 'edit'}-day-${id}" min="1" max="31"> / <input type="number" value="${month || ''}" id="${isNew ? 'new' : 'edit'}-month-${id}" min="1" max="12"></td>
+                <td><input type="number" value="${day || ''}" id="${isNew ? 'new' : 'edit'}-day-${id}" class="small-input" min="1" max="31"> / <input type="number" value="${month || ''}" id="${isNew ? 'new' : 'edit'}-month-${id}" class="small-input" min="1" max="12"></td>
                 <td><input type="checkbox" id="${isNew ? 'new' : 'edit'}-notify-${id}" ${notify ? 'checked' : ''}></td>
                 <td class="actions">
                     ${isNew ? '' : `
@@ -247,11 +228,12 @@
                 body: JSON.stringify(updatedData)
             })
                 .then(response => {
-                    if (response.ok) {
-                        window.location.reload();
-                    } else {
-                        alert('Failed to update occurrence');
+                    if (!response.ok) {
+                        console.error('Error:', response.status);
+                        alert('Controlla che i campi siano validi.');
+                        return;
                     }
+                    updateRow(`occurrence-${id}`, response);
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -266,6 +248,7 @@
             newRow.innerHTML = createInputFields('new', '', '', '', '', true, true);
 
             hideAddButton();
+            updateNoneRowDisplay();
         }
         function hideAddButton() {
             addButton.classList.add(hiddenClass);
@@ -279,6 +262,15 @@
             saveButton.classList.add(hiddenClass);
             cancelButton.classList.add(hiddenClass);
             console.log("shown");
+        }
+        
+        function updateRow(rowElementId, response) {
+            const newRow = document.getElementById(rowElementId);
+            response.json().then((res) => {
+                newRow.id = `occurrence-${res.id}`;
+                newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.notify);
+                updateNoneRowDisplay()
+            });
         }
 
         function saveNewOccurrence() {
@@ -307,13 +299,9 @@
                         alert('Controlla che i campi siano validi.');
                         return;
                     }
-                    const newRow = document.getElementById('new-occurrence');
-                    response.json().then((res) => {
-                        newRow.id = `occurrence-${res.id}`;
-                        newRow.innerHTML = createRow(res.id, name, description, day, month, notify);
-                        showAddButton();
-                    })
-                    
+                    updateRow('new-occurrence', response);
+                    showAddButton();
+                    updateNoneRowDisplay();
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -325,9 +313,11 @@
             // Remove the newly added row
             const newRow = document.getElementById('new-occurrence');
             newRow.parentNode.removeChild(newRow);
-
             showAddButton();
+            updateNoneRowDisplay();
         }
+
+        updateNoneRowDisplay()
     </script>
 
 </body>
