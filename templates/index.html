@@ -30,6 +30,12 @@
             background-color: #f2f2f2;
         }
 
+        .date-inputs {
+            display: flex;
+            align-items: center;
+            border: none;
+            gap: 2px;
+        }
         .small-input {
             width: 32px;
         }
@@ -104,7 +110,7 @@
     <div style="margin-top: 10px; text-align: center;">
         <button id="add-row-button" class="cute-button" onclick="addNewOccurrenceRow()">
             <i class="fas fa-plus"></i> Aggiungi</button>
-        <button id="save-row-button" class="cute-button hidden" onclick="saveNewOccurrence()">
+        <button id="save-row-button" class="cute-button hidden" onclick="saveOccurrence('0')">
             <i class="fas fa-save"></i> Salva
         </button>
         <button id="cancel-row-button" class="cute-button cute-button-red hidden" onclick="cancelNewOccurrence()">
@@ -174,10 +180,10 @@
         function createInputFields(id, name, description, day, month, notify, isNew) {
             return `
                 <td>${isNew ? '' : id}</td>
-                <td><input type="text" value="${name || ''}" id="${isNew ? 'new' : 'edit'}-name-${id}"></td>
-                <td><input type="text" value="${description || ''}" id="${isNew ? 'new' : 'edit'}-description-${id}"></td>
-                <td><input type="number" value="${day || ''}" id="${isNew ? 'new' : 'edit'}-day-${id}" class="small-input" min="1" max="31"> / <input type="number" value="${month || ''}" id="${isNew ? 'new' : 'edit'}-month-${id}" class="small-input" min="1" max="12"></td>
-                <td><input type="checkbox" id="${isNew ? 'new' : 'edit'}-notify-${id}" ${notify ? 'checked' : ''}></td>
+                <td><input type="text" value="${name || ''}" id="name-${id}"></td>
+                <td><input type="text" value="${description || ''}" id="description-${id}"></td>
+                <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> / <input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
+                <td><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
                 <td class="actions">
                     ${isNew ? '' : `
                     <i class="fas fa-save" title="Save" onclick="saveOccurrence(${id})"></i>
@@ -205,14 +211,15 @@
         }
 
         function saveOccurrence(id) {
-            const name = document.getElementById(`edit-name-${id}`).value;
-            const description = document.getElementById(`edit-description-${id}`).value;
-            const day = parseInt(document.getElementById(`edit-day-${id}`).value);
-            const month = parseInt(document.getElementById(`edit-month-${id}`).value);
-            const notify = document.getElementById(`edit-notify-${id}`).checked;
+            const name = document.getElementById(`name-${id}`).value;
+            const description = document.getElementById(`description-${id}`).value;
+            const day = parseInt(document.getElementById(`day-${id}`).value);
+            const month = parseInt(document.getElementById(`month-${id}`).value);
+            const notify = document.getElementById(`notify-${id}`).checked;
 
+            const isNew = id === '0';
             const updatedData = {
-                id: id,
+                id: isNew ? undefined : id,
                 name: name,
                 description: description,
                 month: month,
@@ -233,6 +240,9 @@
                         alert('Controlla che i campi siano validi.');
                         return;
                     }
+                    if (isNew) {
+                        mainTable.insertRow(-1).id = `occurrence-${id}`
+                    }
                     updateRow(`occurrence-${id}`, response);
                 })
                 .catch(error => {
@@ -242,10 +252,9 @@
         }
 
         function addNewOccurrenceRow() {
-            const table = document.querySelector('table');
-            const newRow = table.insertRow(-1);
+            const newRow = mainTable.insertRow(-1);
             newRow.id = 'new-occurrence';
-            newRow.innerHTML = createInputFields('new', '', '', '', '', true, true);
+            newRow.innerHTML = createInputFields('0', '', '', '', '', true, true);
 
             hideAddButton();
             updateNoneRowDisplay();
@@ -273,44 +282,7 @@
             });
         }
 
-        function saveNewOccurrence() {
-            const name = document.getElementById('new-name-new').value;
-            const description = document.getElementById('new-description-new').value;
-            const day = parseInt(document.getElementById('new-day-new').value);
-            const month = parseInt(document.getElementById('new-month-new').value);
-            const notify = document.getElementById('new-notify-new').checked;
-
-            const newData = {
-                name: name,
-                description: description,
-                month: month,
-                day: day,
-                notify: notify
-            };
-
-            fetch('/occurrences', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(newData)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        console.error('Error:', response.status);
-                        alert('Controlla che i campi siano validi.');
-                        return;
-                    }
-                    updateRow('new-occurrence', response);
-                    showAddButton();
-                    updateNoneRowDisplay();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Non sono riuscito a contattare il backend.');
-                });
-        }
-
         function cancelNewOccurrence() {
-            // Remove the newly added row
             const newRow = document.getElementById('new-occurrence');
             newRow.parentNode.removeChild(newRow);
             showAddButton();
