@@ -31,7 +31,7 @@ func ParseTemplates() {
 
 func ShowIndexPage(c *gin.Context) {
 	var occurrences []Occurrence
-	db.Find(&occurrences)
+	db.Order("month, day").Find(&occurrences)
 
 	data := struct {
 		Occurrences []Occurrence
