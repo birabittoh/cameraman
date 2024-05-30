@@ -22,7 +22,7 @@ var (
 
 func notifyTelegram(occurrence Occurrence) error {
 	log.Println("Sending notification for occurrence", occurrence.ID)
-	message := fmt.Sprintf("*Giorno %02d/%02d*:\n\n_%s_\n%s",
+	message := fmt.Sprintf("*Giorno %02d/%02d*.\n\n_%s_\n%s",
 		occurrence.Day, occurrence.Month, occurrence.Name, occurrence.Description)
 
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", telegramToken)

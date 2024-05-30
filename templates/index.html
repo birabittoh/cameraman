@@ -64,6 +64,9 @@
         .small-input {
             width: 32px;
         }
+        .big-input {
+            width: 100%;
+        }
 
         .actions i {
             cursor: pointer;
@@ -112,6 +115,7 @@
             <th>Descrizione</th>
             <th>Data (gg/mm)</th>
             <th>Notifica</th>
+            <th>Inviata</th>
             <th>Azioni</th>
         </tr>
         {{ range .Occurrences }}
@@ -120,6 +124,7 @@
             <td>{{ .Description }}</td>
             <td>{{ padZero .Day }}/{{ padZero .Month }}</td>
             <td><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
+            <td><input type="checkbox" {{if .Notified}}checked{{end}} disabled></td>
             <td class="actions">
                 <i class="fas fa-edit" title="Modifica" onclick="editOccurrence('{{ .ID }}')"></i>
                 <i class="fas fa-trash-alt" title="Elimina" onclick="deleteOccurrence('{{ .ID }}')"></i>
@@ -127,7 +132,7 @@
         </tr>
         {{ end }}
         <tr id="occurrence-none" class="hidden">
-            <td colspan="5">Nessuna ricorrenza.</td>
+            <td colspan="6">Nessuna ricorrenza.</td>
         </tr>
     </table>
     <div style="margin-top: 10px; text-align: center;">
@@ -185,12 +190,13 @@
             return input.toString().padStart(n, '0');
         }
 
-        function createRow(id, name, description, day, month, notify) {
+        function createRow(id, name, description, day, month, notify, notified) {
             return `
                 <td>${name}</td>
                 <td>${description}</td>
                 <td>${padNumber(day)}/${padNumber(month)}</td>
                 <td><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
+                <td><input type="checkbox" ${notified ? 'checked' : ''} disabled></td>
                 <td class="actions">
                     <i class="fas fa-edit" title="Edit" onclick="editOccurrence(${id})"></i>
                     <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence(${id})"></i>
@@ -198,12 +204,13 @@
             `;
         }
 
-        function createInputFields(id, name, description, day, month, notify, isNew) {
+        function createInputFields(id, name, description, day, month, notify, notified, isNew) {
             return `
-                <td><input type="text" value="${name || ''}" id="name-${id}"></td>
-                <td><input type="text" value="${description || ''}" id="description-${id}"></td>
+                <td><input class="big-input" type="text" value="${name || ''}" id="name-${id}"></td>
+                <td><input class="big-input" type="text" value="${description || ''}" id="description-${id}"></td>
                 <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> / <input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
                 <td><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
+                <td><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : ''}></td>
                 <td class="actions">
                     ${isNew ? '' : `
                     <i class="fas fa-save" title="Save" onclick="saveOccurrence(${id})"></i>
@@ -221,8 +228,9 @@
             const description = cells[1].innerText;
             const [day, month] = cells[2].innerText.split('/');
             const notify = cells[3].getElementsByTagName('input')[0].checked;
+            const notified = cells[4].getElementsByTagName('input')[0].checked;
 
-            row.innerHTML = createInputFields(id, name, description, day, month, notify, false);
+            row.innerHTML = createInputFields(id, name, description, day, month, notify, notified, false);
         }
 
         function cancelEdit(id, name, description, day, month, notify) {
@@ -236,6 +244,7 @@
             const day = parseInt(document.getElementById(`day-${id}`).value);
             const month = parseInt(document.getElementById(`month-${id}`).value);
             const notify = document.getElementById(`notify-${id}`).checked;
+            const notified = document.getElementById(`notified-${id}`).checked;
 
             const isNew = id === '0';
             const updatedData = {
@@ -244,7 +253,8 @@
                 description: description,
                 month: month,
                 day: day,
-                notify: notify
+                notify: notify,
+                notified: notified
             };
 
             fetch('/occurrences', {
@@ -275,7 +285,7 @@
         function addNewOccurrenceRow() {
             const newRow = mainTable.insertRow(-1);
             newRow.id = 'new-occurrence';
-            newRow.innerHTML = createInputFields('0', '', '', '', '', true, true);
+            newRow.innerHTML = createInputFields('0', '', '', '', '', true, false, true);
 
             hideAddButton();
             updateNoneRowDisplay();
@@ -296,7 +306,7 @@
             const newRow = document.getElementById(rowElementId);
             response.json().then((res) => {
                 newRow.id = `occurrence-${res.id}`;
-                newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.notify);
+                newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.notify, res.notified);
                 updateNoneRowDisplay()
             });
         }

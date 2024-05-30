@@ -28,6 +28,34 @@ func validateDate(month, day int) error {
 	return nil
 }
 
+func updateOccurrence(c *gin.Context, input Occurrence) {
+	var occurrence Occurrence
+	if err := db.First(&occurrence, input.ID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update existing record with new values
+	if input.Day != 0 || input.Month != 0 {
+		if err := validateDate(input.Month, input.Day); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		occurrence.Month = input.Month
+		occurrence.Day = input.Day
+	}
+	if input.Name != "" {
+		occurrence.Name = input.Name
+	}
+	if input.Description != "" {
+		occurrence.Description = input.Description
+	}
+	occurrence.Notify = input.Notify
+	occurrence.Notified = input.Notified
+	db.Save(&occurrence)
+	c.JSON(http.StatusOK, occurrence)
+}
+
 func addOccurrence(c *gin.Context) {
 	var input Occurrence
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -35,51 +63,18 @@ func addOccurrence(c *gin.Context) {
 		return
 	}
 
-	var isDateValid = false
-	// Validate date
-	if input.Day != 0 || input.Month != 0 {
-		if err := validateDate(input.Month, input.Day); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		isDateValid = true
-	}
-
-	var occurrence Occurrence
 	if input.ID != 0 {
-		if err := db.First(&occurrence, input.ID).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Update existing record with new values
-		if isDateValid {
-			occurrence.Month = input.Month
-			occurrence.Day = input.Day
-		}
-		if input.Name != "" {
-			occurrence.Name = input.Name
-		}
-		if input.Description != "" {
-			occurrence.Description = input.Description
-		}
-		occurrence.Notify = input.Notify
-		occurrence.Notified = input.Notified
-		db.Save(&occurrence)
-		c.JSON(http.StatusOK, occurrence)
+		updateOccurrence(c, input)
 		return
 	}
 
-	// Create a new record if no existing record is found
-	if !isDateValid {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date"})
+	if err := validateDate(input.Month, input.Day); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	occurrence = input
-	occurrence.Notified = false
-	db.Create(&occurrence)
-	c.JSON(http.StatusOK, occurrence)
+	db.Create(&input)
+	c.JSON(http.StatusOK, input)
 }
 
 func getOccurrences(c *gin.Context) {
