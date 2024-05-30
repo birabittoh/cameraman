@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -9,14 +10,18 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-var notificationWindow = 3
+var (
+	NotificationWindow int
+	SleepDuration      time.Duration
 
-func notifyTelegram(occurrence Occurrence) {
-	client := resty.New()
-	telegramToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	chatID := os.Getenv("TELEGRAM_CHAT_ID")
-	threadID := os.Getenv("TELEGRAM_THREAD_ID")
+	notificationClient *resty.Client
+	telegramToken      string
+	chatID             string
+	threadID           string
+)
 
+func notifyTelegram(occurrence Occurrence) error {
+	log.Println("Sending notification for occurrence", occurrence.ID)
 	message := fmt.Sprintf("*Giorno %02d/%02d*:\n\n_%s_\n%s",
 		occurrence.Day, occurrence.Month, occurrence.Name, occurrence.Description)
 
@@ -24,23 +29,24 @@ func notifyTelegram(occurrence Occurrence) {
 
 	// Create the payload
 	payload := map[string]interface{}{
-		"message_thread_id": threadID,
 		"chat_id":           chatID,
 		"text":              message,
 		"parse_mode":        "markdown",
+		"message_thread_id": threadID,
 	}
 
 	// Send the POST request
-	resp, err := client.R().
+	resp, err := notificationClient.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(payload).
 		Post(url)
 
 	if err != nil {
 		log.Printf("Failed to send notification: %v", err)
-		return
+		return err
 	}
 	log.Printf("Notification sent: %s, Response: %s", message, resp)
+	return nil
 }
 
 func resetNotifications() {
@@ -51,36 +57,58 @@ func resetNotifications() {
 	}
 }
 
+func initNotifications() error {
+	notificationClient = resty.New()
+
+	telegramToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+	chatID = os.Getenv("TELEGRAM_CHAT_ID")
+	threadID = os.Getenv("TELEGRAM_THREAD_ID")
+
+	if telegramToken == "" || chatID == "" {
+		log.Println("Warning: you should set your Telegram Bot token and chat id in .env, otherwise you won't get notifications!")
+		return errors.New("empty telegramToken or chatId")
+	}
+	return nil
+}
+
 func CheckOccurrences() {
-	const sleepDuration = 12 * time.Hour
+	err := initNotifications()
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
 
 	for {
+		log.Println("Checking for new occurrences.")
 		now := time.Now()
-		var occurrences []Occurrence
-		endWindow := now.AddDate(0, 0, notificationWindow)
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+		endWindow := today.AddDate(0, 0, NotificationWindow)
 
+		var occurrences []Occurrence
 		db.Where("notified = ? AND ((month = ? AND day >= ?) OR (month = ? AND day <= ?))",
-			false, now.Month(), now.Day(), endWindow.Month(), endWindow.Day()).Find(&occurrences)
+			false, today.Month(), today.Day(), endWindow.Month(), endWindow.Day()).Find(&occurrences)
 
 		for _, occurrence := range occurrences {
-			occurrenceDate := time.Date(now.Year(), time.Month(occurrence.Month), occurrence.Day, 0, 0, 0, 0, time.Local)
-			if occurrenceDate.Before(now) || occurrenceDate.After(endWindow) {
+			occurrenceDate := time.Date(today.Year(), time.Month(occurrence.Month), occurrence.Day, 0, 0, 0, 0, time.Local)
+			if occurrenceDate.Before(today) || occurrenceDate.After(endWindow) || !occurrence.Notify || occurrence.Notified {
 				continue
 			}
 
-			if occurrence.Notify {
-				notifyTelegram(occurrence)
-				occurrence.Notified = true
-				db.Save(&occurrence)
+			err := notifyTelegram(occurrence)
+			if err != nil {
+				log.Println(err.Error())
+				return
 			}
+			occurrence.Notified = true
+			db.Save(&occurrence)
 		}
 
 		// Check if New Year's Eve is within the next sleep cycle
-		nextCheck := now.Add(sleepDuration)
-		if now.Month() == 12 && now.Day() == 31 || (nextCheck.Month() == 1 && nextCheck.Day() == 1) {
+		nextCheck := now.Add(SleepDuration)
+		if (now.Month() == 12 && now.Day() == 31) && (nextCheck.Month() == 1 && nextCheck.Day() == 1) {
 			resetNotifications()
 		}
 
-		time.Sleep(sleepDuration)
+		time.Sleep(SleepDuration)
 	}
 }

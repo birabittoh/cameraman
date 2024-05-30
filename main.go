@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +27,17 @@ type Occurrence struct {
 	UpdatedAt   time.Time `json:"-"`
 }
 
-var db *gorm.DB
-
 const (
-	dataDir = "data"
-	dbFile  = "occurrences.db"
+	dataDir                   = "data"
+	dbFile                    = "occurrences.db"
+	defaultNotificationWindow = 3
+	defaultSleepDuration      = 1
+	defaultPort               = 3000
+)
+
+var (
+	db   *gorm.DB
+	port int
 )
 
 func initDB() {
@@ -50,9 +58,30 @@ func initDB() {
 }
 
 func loadEnv() {
-	if err := godotenv.Load(); err != nil {
+	err := godotenv.Load()
+	if err != nil {
 		log.Println("Error loading .env file")
 	}
+
+	NotificationWindow, err = strconv.Atoi(os.Getenv("DAYS_BEFORE_NOTIFICATION"))
+	if err != nil {
+		NotificationWindow = defaultNotificationWindow
+	}
+	log.Println("Notification window (days):", NotificationWindow)
+
+	loadedSleepDuration, err := strconv.Atoi(os.Getenv("HOURS_BETWEEN_CHECKS"))
+	if err != nil {
+		SleepDuration = defaultSleepDuration * time.Hour
+	} else {
+		SleepDuration = time.Duration(loadedSleepDuration) * time.Hour
+	}
+	log.Println("Sleep duration:", SleepDuration)
+
+	port, err = strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		port = defaultPort
+	}
+	log.Println("Port:", port)
 }
 
 func main() {
@@ -68,5 +97,5 @@ func main() {
 	router.DELETE("/occurrences/:id", deleteOccurrence)
 	router.GET("/", ShowIndexPage)
 
-	router.Run(":3000")
+	router.Run(fmt.Sprintf(":%d", port))
 }
