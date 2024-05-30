@@ -210,7 +210,7 @@
                 <td><input class="big-input" type="text" value="${description || ''}" id="description-${id}"></td>
                 <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> / <input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
                 <td><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
-                <td><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : ''}></td>
+                <td><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
                 <td class="actions">
                     ${isNew ? '' : `
                     <i class="fas fa-save" title="Save" onclick="saveOccurrence(${id})"></i>
