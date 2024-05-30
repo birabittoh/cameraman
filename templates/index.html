@@ -108,7 +108,6 @@
     <h1>Ricorrenze</h1>
     <table id="main-table">
         <tr>
-            <th>ID</th>
             <th>Nome</th>
             <th>Descrizione</th>
             <th>Data (gg/mm)</th>
@@ -117,7 +116,6 @@
         </tr>
         {{ range .Occurrences }}
         <tr id="occurrence-{{ .ID }}">
-            <td>{{ .ID }}</td>
             <td>{{ .Name }}</td>
             <td>{{ .Description }}</td>
             <td>{{ padZero .Day }}/{{ padZero .Month }}</td>
@@ -129,7 +127,7 @@
         </tr>
         {{ end }}
         <tr id="occurrence-none" class="hidden">
-            <td colspan="6">Nessuna ricorrenza.</td>
+            <td colspan="5">Nessuna ricorrenza.</td>
         </tr>
     </table>
     <div style="margin-top: 10px; text-align: center;">
@@ -189,7 +187,6 @@
 
         function createRow(id, name, description, day, month, notify) {
             return `
-                <td>${id}</td>
                 <td>${name}</td>
                 <td>${description}</td>
                 <td>${padNumber(day)}/${padNumber(month)}</td>
@@ -203,7 +200,6 @@
 
         function createInputFields(id, name, description, day, month, notify, isNew) {
             return `
-                <td>${isNew ? '' : id}</td>
                 <td><input type="text" value="${name || ''}" id="name-${id}"></td>
                 <td><input type="text" value="${description || ''}" id="description-${id}"></td>
                 <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> / <input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
@@ -221,10 +217,10 @@
             const row = document.getElementById(`occurrence-${id}`);
             const cells = row.getElementsByTagName('td');
 
-            const name = cells[1].innerText;
-            const description = cells[2].innerText;
-            const [day, month] = cells[3].innerText.split('/');
-            const notify = cells[4].getElementsByTagName('input')[0].checked;
+            const name = cells[0].innerText;
+            const description = cells[1].innerText;
+            const [day, month] = cells[2].innerText.split('/');
+            const notify = cells[3].getElementsByTagName('input')[0].checked;
 
             row.innerHTML = createInputFields(id, name, description, day, month, notify, false);
         }
