@@ -187,7 +187,7 @@
         }
 
         function padNumber(input, n=2) {
-            return input.toString().padStart(n, '0');
+            return Math.max(1, Math.min(input, 12)).toString().padStart(n, '0');
         }
 
         function createRow(id, name, description, day, month, notify, notified) {
@@ -208,7 +208,7 @@
             return `
                 <td><input class="big-input" type="text" value="${name || ''}" id="name-${id}"></td>
                 <td><input class="big-input" type="text" value="${description || ''}" id="description-${id}"></td>
-                <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> / <input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
+                <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> /<input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
                 <td><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
                 <td><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
                 <td class="actions">
