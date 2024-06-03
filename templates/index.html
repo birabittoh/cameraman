@@ -248,8 +248,8 @@
             const myDay = day || '01';
             const myMonth = month || '01';
             return `
-                <td data-field="name" data-value="${myName}"><input class="big-input" type="text" value="${myName}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
-                <td data-field="description" data-value="${myDescription}"><input class="big-input" type="text" value="${myDescription}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
+                <td data-field="name" data-value="${myName}"><input class="big-input" type="text" value="${myName}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})" autocomplete="off"></td>
+                <td data-field="description" data-value="${myDescription}"><input class="big-input" type="text" value="${myDescription}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})" autocomplete="off"></td>
                 <td data-field="date" data-value="${myDay}/${myMonth}" class="date-inputs">
                     <input type="number" value="${myDay}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
                     <input type="number" value="${myMonth}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})">
