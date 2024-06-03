@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-func padZero(i int) string {
+func calcYear(currentYear, year uint) uint {
+	return currentYear - year
+}
+
+func padZero(i uint) string {
 	return fmt.Sprintf("%02d", i)
 }
 
@@ -17,7 +22,10 @@ var (
 	//go:embed templates/index.html
 	templates     embed.FS
 	indexTemplate *template.Template
-	funcMap       = template.FuncMap{"padZero": padZero}
+	funcMap       = template.FuncMap{
+		"padZero":  padZero,
+		"calcYear": calcYear,
+	}
 )
 
 func ParseTemplates() {
@@ -31,15 +39,19 @@ func ParseTemplates() {
 
 func ShowIndexPage(c *gin.Context) {
 	var occurrences []Occurrence
-	db.Order("month, day").Find(&occurrences)
+	db.Order("month, day, name").Find(&occurrences)
 
 	data := struct {
 		Occurrences []Occurrence
+		CurrentYear uint
 	}{
 		Occurrences: occurrences,
+		CurrentYear: uint(time.Now().Year()),
 	}
 
-	if indexTemplate.Execute(c.Writer, data) != nil {
+	err := indexTemplate.Execute(c.Writer, data)
+	if err != nil {
+		log.Println(err.Error())
 		c.String(500, "Internal Server Error")
 	}
 }

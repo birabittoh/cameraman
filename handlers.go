@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func validateDate(month, day int) error {
+func validateDate(month, day uint, year *uint) error {
 	if month < 1 || month > 12 {
 		return errors.New("invalid month: must be between 1 and 12")
 	}
@@ -18,8 +18,15 @@ func validateDate(month, day int) error {
 		return errors.New("invalid day: must be between 1 and 31")
 	}
 
+	var testYear uint
+	if year == nil {
+		testYear = 2023
+	} else {
+		testYear = *year
+	}
+
 	// Construct a date and use time package to validate
-	dateStr := fmt.Sprintf("2023-%02d-%02d", month, day)
+	dateStr := fmt.Sprintf("%04d-%02d-%02d", testYear, month, day)
 	_, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		return errors.New("invalid day for the given month")
@@ -37,12 +44,13 @@ func updateOccurrence(c *gin.Context, input Occurrence) {
 
 	// Update existing record with new values
 	if input.Day != 0 || input.Month != 0 {
-		if err := validateDate(input.Month, input.Day); err != nil {
+		if err := validateDate(input.Month, input.Day, input.Year); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		occurrence.Month = input.Month
 		occurrence.Day = input.Day
+		occurrence.Month = input.Month
+		occurrence.Year = input.Year
 	}
 	if input.Name != "" {
 		occurrence.Name = input.Name
@@ -68,7 +76,7 @@ func addOccurrence(c *gin.Context) {
 		return
 	}
 
-	if err := validateDate(input.Month, input.Day); err != nil {
+	if err := validateDate(input.Month, input.Day, input.Year); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

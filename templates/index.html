@@ -122,7 +122,7 @@
         <tr>
             <th data-field="name">Nome</th>
             <th data-field="description">Descrizione</th>
-            <th data-field="date">Data (gg/mm)</th>
+            <th data-field="date">Data (gg/mm[/yyyy])</th>
             <th data-field="notify">Notifica</th>
             <th data-field="notified">Inviata</th>
             <th data-field="actions">Azioni</th>
@@ -131,7 +131,7 @@
         <tr id="occurrence-{{ .ID }}">
             <td data-field="name" data-value="{{ .Name }}">{{ .Name }}</td>
             <td data-field="description" data-value="{{ .Description }}">{{ .Description }}</td>
-            <td data-field="date" data-value="{{ padZero .Day }}/{{ padZero .Month }}">{{ padZero .Day }}/{{ padZero .Month }}</td>
+            <td data-field="date" data-value="{{ padZero .Day }}/{{ padZero .Month }}{{if .Year }}/{{ .Year }}{{end}}">{{ padZero .Day }}/{{ padZero .Month }}{{if .Year }}/{{ .Year }} (+{{ calcYear $.CurrentYear .Year }}){{end}}</td>
             <td data-field="notify" data-value="{{ .Notify }}"><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
             <td data-field="notified" data-value="{{ .Notified }}"><input type="checkbox" {{if .Notified}}checked{{end}} disabled></td>
             <td data-field="actions" class="actions">
@@ -147,7 +147,7 @@
     <div style="margin-top: 10px; text-align: center;">
         <button id="add-row-button" class="cute-button" onclick="addNewOccurrenceRow()">
             <i class="fas fa-plus"></i> Aggiungi</button>
-        <button id="save-row-button" class="cute-button hidden" onclick="saveOccurrence('0')">
+        <button id="save-row-button" class="cute-button hidden" onclick="saveOccurrence(0)">
             <i class="fas fa-save"></i> Salva
         </button>
         <button id="cancel-row-button" class="cute-button cute-button-red hidden" onclick="cancelNewOccurrence()">
@@ -163,6 +163,8 @@
         const mainTable = document.getElementById('main-table');
         const noneRow = document.getElementById('occurrence-none');
 
+        const now = new Date();
+        const currentYear = now.getFullYear();
         const dataError = 'Controlla che i dati (e le date) siano corretti.';
 
         let currentNext = null;
@@ -180,10 +182,9 @@
             const valueRows = rows.filter((row) => !row.classList.contains('editing'));
 
             // Sort rows by date
-            now = new Date();
             valueRows.sort((a, b) => {
-                const dateA = parseDateString(now, getValueFromRow(a, 'date'));
-                const dateB = parseDateString(now, getValueFromRow(b, 'date'));
+                const dateA = parseDateString(getValueFromRow(a, 'date'));
+                const dateB = parseDateString(getValueFromRow(b, 'date'));
                 return dateA - dateB;
             });
 
@@ -219,20 +220,29 @@
             return input.toString().padStart(n, '0');
         }
 
-        function padMax(input, max = 31) {
-            return padNumber(Math.max(1, Math.min(input, max)))
+        function padMax(input, max = 31, min=1) {
+            const n = Number(input);
+            if (isNaN(n)) {
+                console.log(max)
+                return max;}
+            return padNumber(Math.max(min, Math.min(n | 0, max)))
         }
 
-        function handleInputKeyDown(event, id) {
+        function padYear(input, max, min) {
+            if (input == '') return '';
+            return padMax(input, max, min)
+        }
+
+        function handleInputKeyDown(event, id, isNew) {
             if (event.key !== 'Enter') return;
-            saveOccurrence(id);
+            saveOccurrence(isNew ? 0 : id);
         }
 
-        function createRow(id, name, description, day, month, notify, notified) {
+        function createRow(id, name, description, day, month, year, notify, notified) {
             return `
                 <td data-field="name" data-value="${name}">${name}</td>
                 <td data-field="description" data-value="${description}">${description}</td>
-                <td data-field="date" data-value="${padNumber(day)}/${padNumber(month)}">${padNumber(day)}/${padNumber(month)}</td>
+                <td data-field="date" data-value="${padNumber(day)}/${padNumber(month)}${year ? `/${padNumber(year, 4)}` : ''}">${padNumber(day)}/${padNumber(month)}${year ? `/${year} (+${currentYear - year})` : ''}</td>
                 <td data-field="notify" data-value="${notify}"><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
                 <td data-field="notified" data-value="${notified}"><input type="checkbox" ${notified ? 'checked' : ''} disabled></td>
                 <td data-field="actions" class="actions">
@@ -242,17 +252,19 @@
             `;
         }
 
-        function createInputFields(id, name, description, day, month, notify, notified, isNew) {
+        function createInputFields(id, name, description, day, month, year, notify, notified, isNew) {
             const myName = name || '';
             const myDescription = description || '';
             const myDay = day || '01';
             const myMonth = month || '01';
+            const myYear = year || '';
             return `
                 <td data-field="name" data-value="${myName}"><input class="big-input" type="text" value="${myName}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})" autocomplete="off"></td>
                 <td data-field="description" data-value="${myDescription}"><input class="big-input" type="text" value="${myDescription}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})" autocomplete="off"></td>
                 <td data-field="date" data-value="${myDay}/${myMonth}" class="date-inputs">
-                    <input type="number" value="${myDay}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
-                    <input type="number" value="${myMonth}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})">
+                    <input type="number" step="1" value="${myDay}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
+                    <input type="number" step="1" value="${myMonth}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
+                    <input type="number" step="1" value="${myYear}" id="year-${id}" class="big-input" min="1000" max="${currentYear}" onchange="this.value = padYear(this.value, this.max, this.min);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id}, ${isNew})">
                 </td>
                 <td data-field="notify" data-value="${notify}"><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
                 <td data-field="notified" data-value="${notified}"><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
@@ -271,17 +283,17 @@
 
             const name = getValueFromRow(row, 'name');
             const description = getValueFromRow(row, 'description');
-            const [day, month] = getValueFromRow(row, 'date').split('/');
-            const notify = cells[3].getElementsByTagName('input')[0].checked;
-            const notified = cells[4].getElementsByTagName('input')[0].checked;
+            const [day, month, year] = getValueFromRow(row, 'date').split('/');
+            const notify = getValueFromRow(row, 'notify');
+            const notified = getValueFromRow(row, 'notified');
 
-            row.innerHTML = createInputFields(id, name, description, day, month, notify, notified, false);
+            row.innerHTML = createInputFields(id, name, description, day, month, year, notify, notified, false);
             row.classList.add('editing');
         }
 
-        function cancelEdit(id, name, description, day, month, notify) {
+        function cancelEdit(id, name, description, day, month, year, notify) {
             const row = document.getElementById(`occurrence-${id}`);
-            row.innerHTML = createRow(id, name, description, day, month, notify);
+            row.innerHTML = createRow(id, name, description, day, month, year, notify);
         }
 
         function saveOccurrence(id) {
@@ -289,16 +301,18 @@
             const description = document.getElementById(`description-${id}`).value;
             const day = parseInt(document.getElementById(`day-${id}`).value);
             const month = parseInt(document.getElementById(`month-${id}`).value);
+            const year = parseInt(document.getElementById(`year-${id}`).value);
             const notify = document.getElementById(`notify-${id}`).checked;
             const notified = document.getElementById(`notified-${id}`).checked;
 
-            const isNew = id === '0';
+            const isNew = id === 0;
             const updatedData = {
                 id: isNew ? undefined : id,
                 name: name,
                 description: description,
-                month: month,
                 day: day,
+                month: month,
+                year: isNaN(year) ? null : year,
                 notify: notify,
                 notified: notified
             };
@@ -329,7 +343,7 @@
         function addNewOccurrenceRow() {
             const newRow = mainTable.insertRow(-1);
             newRow.id = 'new-occurrence';
-            newRow.innerHTML = createInputFields('0', '', '', '', '', true, false, true);
+            newRow.innerHTML = createInputFields('0', '', '', '', '', '', true, false, true);
 
             hideAddButton();
         }
@@ -349,7 +363,7 @@
             const newRow = document.getElementById(rowElementId);
             response.json().then((res) => {
                 newRow.id = `occurrence-${res.id}`;
-                newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.notify, res.notified);
+                newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.year, res.notify, res.notified);
                 newRow.classList.remove('editing');
                 updateRowDisplay()
             });
@@ -366,21 +380,20 @@
             return row.querySelector(`td[data-field="${field}"]`).getAttribute('data-value');
         }
 
-        function parseDateString(now, dateString) {
-            const [day, month] = dateString.split('/').map((x) => Number(x));
-            return new Date(now.getFullYear(), month - 1, day, 23, 59, 59);
+        function parseDateString(dateString) {
+            const [day, month, year] = dateString.split('/').map((x) => Number(x));
+            return new Date(currentYear, month - 1, day, 23, 59, 59);
         }
 
         function findNextOccurrence() {
             if (currentNext !== null) {
                 currentNext.classList.remove('next');
             }
-            const now = new Date();
             const occurrenceRows = Array.from(mainTable.querySelectorAll("tr[id]:not(#occurrence-none):not(#new-occurrence)"));
             const occurrences = occurrenceRows.map((row) => {
                 const id = row.id.split('-')[1];
                 const dateString = getValueFromRow(row, 'date');
-                const date = parseDateString(now, dateString);
+                const date = parseDateString(dateString);
 
                 return { id, date };
             });

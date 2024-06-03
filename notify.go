@@ -89,7 +89,7 @@ func CheckOccurrences() {
 			false, today.Month(), today.Day(), endWindow.Month(), endWindow.Day()).Find(&occurrences)
 
 		for _, occurrence := range occurrences {
-			occurrenceDate := time.Date(today.Year(), time.Month(occurrence.Month), occurrence.Day, 0, 0, 0, 0, time.Local)
+			occurrenceDate := time.Date(today.Year(), time.Month(occurrence.Month), int(occurrence.Day), 0, 0, 0, 0, time.Local)
 			if occurrenceDate.Before(today) || occurrenceDate.After(endWindow) || !occurrence.Notify || occurrence.Notified {
 				continue
 			}

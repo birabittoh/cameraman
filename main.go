@@ -16,15 +16,17 @@ import (
 
 // Occurrence represents a scheduled event
 type Occurrence struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	Month       int       `json:"month"`
-	Day         int       `json:"day"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Notify      bool      `json:"notify"`
-	Notified    bool      `json:"notified"`
-	CreatedAt   time.Time `json:"-"`
-	UpdatedAt   time.Time `json:"-"`
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	Day         uint   `json:"day"`
+	Month       uint   `json:"month"`
+	Year        *uint  `json:"year"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Notify      bool   `json:"notify"`
+	Notified    bool   `json:"notified"`
 }
 
 const (
