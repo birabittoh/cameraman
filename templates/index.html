@@ -55,6 +55,11 @@
             background-color: var(--bg);
         }
 
+        .next {
+            background-color: var(--red);
+            color: white;
+        }
+
         .date-inputs {
             display: flex;
             align-items: center;
@@ -111,21 +116,21 @@
     <h1>Ricorrenze</h1>
     <table id="main-table">
         <tr>
-            <th>Nome</th>
-            <th>Descrizione</th>
-            <th>Data (gg/mm)</th>
-            <th>Notifica</th>
-            <th>Inviata</th>
-            <th>Azioni</th>
+            <th data-field="name">Nome</th>
+            <th data-field="description">Descrizione</th>
+            <th data-field="date">Data (gg/mm)</th>
+            <th data-field="notify">Notifica</th>
+            <th data-field="notified">Inviata</th>
+            <th data-field="actions">Azioni</th>
         </tr>
         {{ range .Occurrences }}
         <tr id="occurrence-{{ .ID }}">
-            <td>{{ .Name }}</td>
-            <td>{{ .Description }}</td>
-            <td>{{ padZero .Day }}/{{ padZero .Month }}</td>
-            <td><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
-            <td><input type="checkbox" {{if .Notified}}checked{{end}} disabled></td>
-            <td class="actions">
+            <td data-field="name">{{ .Name }}</td>
+            <td data-field="description">{{ .Description }}</td>
+            <td data-field="date">{{ padZero .Day }}/{{ padZero .Month }}</td>
+            <td data-field="notify"><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
+            <td data-field="notified"><input type="checkbox" {{if .Notified}}checked{{end}} disabled></td>
+            <td data-field="actions" class="actions">
                 <i class="fas fa-edit" title="Modifica" onclick="editOccurrence('{{ .ID }}')"></i>
                 <i class="fas fa-trash-alt" title="Elimina" onclick="deleteOccurrence('{{ .ID }}')"></i>
             </td>
@@ -153,8 +158,12 @@
         const cancelButton = document.getElementById('cancel-row-button');
         const mainTable = document.getElementById('main-table');
         const noneRow = document.getElementById('occurrence-none');
+        
+        const dataError = 'Controlla che i dati (e le date) siano corretti.';
 
-        function updateNoneRowDisplay() {
+        let currentNext = null;
+
+        function updateRowDisplay() {
             const rows = mainTable.getElementsByTagName('tr');
             const l = rows.length
             if (l === 2) {
@@ -162,6 +171,7 @@
                 return;
             }
             noneRow.classList.add(hiddenClass);
+            findNextOccurrence();
         }
 
         function deleteOccurrence(id) {
@@ -177,11 +187,11 @@
                         }
                         const deletedRow = document.getElementById(`occurrence-${id}`);
                         deletedRow.parentElement.removeChild(deletedRow);
-                        updateNoneRowDisplay();
+                        updateRowDisplay();
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Non sono riuscito a contattare il backend.');
+                        alert(dataError);
                     });
             }
         }
@@ -192,12 +202,12 @@
 
         function createRow(id, name, description, day, month, notify, notified) {
             return `
-                <td>${name}</td>
-                <td>${description}</td>
-                <td>${padNumber(day)}/${padNumber(month)}</td>
-                <td><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
-                <td><input type="checkbox" ${notified ? 'checked' : ''} disabled></td>
-                <td class="actions">
+                <td data-field="name">${name}</td>
+                <td data-field="description">${description}</td>
+                <td data-field="date">${padNumber(day)}/${padNumber(month)}</td>
+                <td data-field="notify"><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
+                <td data-field="notified"><input type="checkbox" ${notified ? 'checked' : ''} disabled></td>
+                <td data-field="actions" class="actions">
                     <i class="fas fa-edit" title="Edit" onclick="editOccurrence(${id})"></i>
                     <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence(${id})"></i>
                 </td>
@@ -278,7 +288,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Non sono riuscito a contattare il backend.');
+                    alert(dataError);
                 });
         }
 
@@ -288,7 +298,7 @@
             newRow.innerHTML = createInputFields('0', '', '', '', '', true, false, true);
 
             hideAddButton();
-            updateNoneRowDisplay();
+            updateRowDisplay();
         }
         function hideAddButton() {
             addButton.classList.add(hiddenClass);
@@ -307,7 +317,7 @@
             response.json().then((res) => {
                 newRow.id = `occurrence-${res.id}`;
                 newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.notify, res.notified);
-                updateNoneRowDisplay()
+                updateRowDisplay()
             });
         }
 
@@ -315,10 +325,39 @@
             const newRow = document.getElementById('new-occurrence');
             newRow.parentNode.removeChild(newRow);
             showAddButton();
-            updateNoneRowDisplay();
+            updateRowDisplay();
         }
 
-        updateNoneRowDisplay()
+        function findNextOccurrence() {
+            if (currentNext !== null) {
+                currentNext.classList.remove('next');
+            }
+            const now = new Date();
+            const occurrenceRows = Array.from(mainTable.querySelectorAll("tr[id]:not(#occurrence-none):not(#new-occurrence)"));
+            const occurrences = occurrenceRows.map((row) => {
+                const tds = Array.from(row.getElementsByTagName('td'));
+                
+                const id = row.id.split('-')[1];
+
+                const dateString = tds.find((td) => td.getAttribute('data-field') === 'date').innerText;
+                const [day, month] = dateString.split('/').map((x) => Number(x));
+                const date = new Date(now.getFullYear(), month - 1, day, 23, 59, 59);
+
+                return {id, date}
+            });
+
+            const deltas = occurrences.map((x) => ({...x, distance: x.date - now})).filter((x) => x.distance > 0);
+            if (deltas.length == 0) return;
+
+            const distances = deltas.map((x) => x.distance);
+            const minDistance = Math.min(...distances);
+            const minDelta = deltas.find((x) => x.distance == minDistance);
+            
+            currentNext = occurrenceRows.find((row) => row.id === `occurrence-${minDelta.id}`);
+            currentNext.classList.add('next');
+        }
+
+        updateRowDisplay();
     </script>
 
 </body>
