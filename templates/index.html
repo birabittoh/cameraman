@@ -129,11 +129,11 @@
         </tr>
         {{ range .Occurrences }}
         <tr id="occurrence-{{ .ID }}">
-            <td data-field="name">{{ .Name }}</td>
-            <td data-field="description">{{ .Description }}</td>
-            <td data-field="date">{{ padZero .Day }}/{{ padZero .Month }}</td>
-            <td data-field="notify"><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
-            <td data-field="notified"><input type="checkbox" {{if .Notified}}checked{{end}} disabled></td>
+            <td data-field="name" data-value="{{ .Name }}">{{ .Name }}</td>
+            <td data-field="description" data-value="{{ .Description }}">{{ .Description }}</td>
+            <td data-field="date" data-value="{{ padZero .Day }}/{{ padZero .Month }}">{{ padZero .Day }}/{{ padZero .Month }}</td>
+            <td data-field="notify" data-value="{{ .Notify }}"><input type="checkbox" {{if .Notify}}checked{{end}} disabled></td>
+            <td data-field="notified" data-value="{{ .Notified }}"><input type="checkbox" {{if .Notified}}checked{{end}} disabled></td>
             <td data-field="actions" class="actions">
                 <i class="fas fa-edit" title="Modifica" onclick="editOccurrence('{{ .ID }}')"></i>
                 <i class="fas fa-trash-alt" title="Elimina" onclick="deleteOccurrence('{{ .ID }}')"></i>
@@ -182,8 +182,8 @@
             // Sort rows by date
             now = new Date();
             valueRows.sort((a, b) => {
-                const dateA = parseDateString(now, a.querySelector('td[data-field="date"]').innerText);
-                const dateB = parseDateString(now, b.querySelector('td[data-field="date"]').innerText);
+                const dateA = parseDateString(now, getValueFromRow(a, 'date'));
+                const dateB = parseDateString(now, getValueFromRow(b, 'date'));
                 return dateA - dateB;
             });
 
@@ -219,7 +219,7 @@
             return input.toString().padStart(n, '0');
         }
 
-        function padMax(input, max=31) {
+        function padMax(input, max = 31) {
             return padNumber(Math.max(1, Math.min(input, max)))
         }
 
@@ -230,11 +230,11 @@
 
         function createRow(id, name, description, day, month, notify, notified) {
             return `
-                <td data-field="name">${name}</td>
-                <td data-field="description">${description}</td>
-                <td data-field="date">${padNumber(day)}/${padNumber(month)}</td>
-                <td data-field="notify"><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
-                <td data-field="notified"><input type="checkbox" ${notified ? 'checked' : ''} disabled></td>
+                <td data-field="name" data-value="${name}">${name}</td>
+                <td data-field="description" data-value="${description}">${description}</td>
+                <td data-field="date" data-value="${padNumber(day)}/${padNumber(month)}">${padNumber(day)}/${padNumber(month)}</td>
+                <td data-field="notify" data-value="${notify}"><input type="checkbox" ${notify ? 'checked' : ''} disabled></td>
+                <td data-field="notified" data-value="${notified}"><input type="checkbox" ${notified ? 'checked' : ''} disabled></td>
                 <td data-field="actions" class="actions">
                     <i class="fas fa-edit" title="Edit" onclick="editOccurrence(${id})"></i>
                     <i class="fas fa-trash-alt" title="Delete" onclick="deleteOccurrence(${id})"></i>
@@ -243,15 +243,19 @@
         }
 
         function createInputFields(id, name, description, day, month, notify, notified, isNew) {
+            const myName = name || '';
+            const myDescription = description || '';
+            const myDay = day || '01';
+            const myMonth = month || '01';
             return `
-                <td><input class="big-input" type="text" value="${name || ''}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
-                <td><input class="big-input" type="text" value="${description || ''}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
-                <td class="date-inputs">
-                    <input type="number" value="${day || '01'}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padMax(this.value, 31);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
-                    <input type="number" value="${month || '01'}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, 12);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})">
+                <td data-field="name" data-value="${myName}"><input class="big-input" type="text" value="${myName}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
+                <td data-field="description" data-value="${myDescription}"><input class="big-input" type="text" value="${myDescription}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
+                <td data-field="date" data-value="${myDay}/${myMonth}" class="date-inputs">
+                    <input type="number" value="${myDay}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
+                    <input type="number" value="${myMonth}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})">
                 </td>
-                <td><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
-                <td><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
+                <td data-field="notify" data-value="${notify}"><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
+                <td data-field="notified" data-value="${notified}"><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
                 <td class="actions">
                     ${isNew ? '' : `
                     <i class="fas fa-save" title="Save" onclick="saveOccurrence(${id})"></i>
@@ -265,9 +269,9 @@
             const row = document.getElementById(`occurrence-${id}`);
             const cells = row.getElementsByTagName('td');
 
-            const name = cells[0].innerText;
-            const description = cells[1].innerText;
-            const [day, month] = cells[2].innerText.split('/');
+            const name = getValueFromRow(row, 'name');
+            const description = getValueFromRow(row, 'description');
+            const [day, month] = getValueFromRow(row, 'date').split('/');
             const notify = cells[3].getElementsByTagName('input')[0].checked;
             const notified = cells[4].getElementsByTagName('input')[0].checked;
 
@@ -361,6 +365,10 @@
             updateRowDisplay();
         }
 
+        function getValueFromRow(row, field) {
+            return row.querySelector(`td[data-field="${field}"]`).getAttribute('data-value');
+        }
+
         function parseDateString(now, dateString) {
             const [day, month] = dateString.split('/').map((x) => Number(x));
             return new Date(now.getFullYear(), month - 1, day, 23, 59, 59);
@@ -373,13 +381,11 @@
             const now = new Date();
             const occurrenceRows = Array.from(mainTable.querySelectorAll("tr[id]:not(#occurrence-none):not(#new-occurrence)"));
             const occurrences = occurrenceRows.map((row) => {
-                const tds = Array.from(row.getElementsByTagName('td'));
-
                 const id = row.id.split('-')[1];
-                const dateString = tds.find((td) => td.getAttribute('data-field') === 'date').innerText;
+                const dateString = getValueFromRow(row, 'date');
                 const date = parseDateString(now, dateString);
 
-                return { id, date }
+                return { id, date };
             });
 
             const deltas = occurrences.map((x) => ({ ...x, distance: x.date - now })).filter((x) => x.distance > 0);
