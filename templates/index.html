@@ -3,7 +3,9 @@
 
 <head>
     <title>Ricorrenze</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%2210 0 100 100%22><text y=%22.90em%22 font-size=%2290%22>📅</text></svg>"></link>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%2210 0 100 100%22><text y=%22.90em%22 font-size=%2290%22>📅</text></svg>">
+    </link>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         :root {
@@ -66,9 +68,11 @@
             border: none;
             gap: 2px;
         }
+
         .small-input {
             width: 32px;
         }
+
         .big-input {
             width: 100%;
         }
@@ -158,19 +162,34 @@
         const cancelButton = document.getElementById('cancel-row-button');
         const mainTable = document.getElementById('main-table');
         const noneRow = document.getElementById('occurrence-none');
-        
+
         const dataError = 'Controlla che i dati (e le date) siano corretti.';
 
         let currentNext = null;
 
         function updateRowDisplay() {
-            const rows = mainTable.getElementsByTagName('tr');
-            const l = rows.length
-            if (l === 2) {
+            const tbody = mainTable.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr[id]:not(#occurrence-none):not(#new-occurrence)'));
+
+            if (rows.length === 0) {
                 noneRow.classList.remove(hiddenClass);
                 return;
             }
             noneRow.classList.add(hiddenClass);
+
+            const valueRows = rows.filter((row) => !row.classList.contains('editing'));
+
+            // Sort rows by date
+            now = new Date();
+            valueRows.sort((a, b) => {
+                const dateA = parseDateString(now, a.querySelector('td[data-field="date"]').innerText);
+                const dateB = parseDateString(now, b.querySelector('td[data-field="date"]').innerText);
+                return dateA - dateB;
+            });
+
+            // Re-append sorted rows to tbody
+            valueRows.forEach(row => tbody.appendChild(row));
+
             findNextOccurrence();
         }
 
@@ -196,8 +215,17 @@
             }
         }
 
-        function padNumber(input, n=2) {
-            return Math.max(1, Math.min(input, 12)).toString().padStart(n, '0');
+        function padNumber(input, n = 2) {
+            return input.toString().padStart(n, '0');
+        }
+
+        function padMax(input, max=31) {
+            return padNumber(Math.max(1, Math.min(input, max)))
+        }
+
+        function handleInputKeyDown(event, id) {
+            if (event.key !== 'Enter') return;
+            saveOccurrence(id);
         }
 
         function createRow(id, name, description, day, month, notify, notified) {
@@ -216,9 +244,12 @@
 
         function createInputFields(id, name, description, day, month, notify, notified, isNew) {
             return `
-                <td><input class="big-input" type="text" value="${name || ''}" id="name-${id}"></td>
-                <td><input class="big-input" type="text" value="${description || ''}" id="description-${id}"></td>
-                <td class="date-inputs"><input type="number" value="${day || ''}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padNumber(this.value);"> /<input type="number" value="${month || ''}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padNumber(this.value);"></td>
+                <td><input class="big-input" type="text" value="${name || ''}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
+                <td><input class="big-input" type="text" value="${description || ''}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})"></td>
+                <td class="date-inputs">
+                    <input type="number" value="${day || '01'}" id="day-${id}" class="small-input" min="1" max="31" onchange="this.value = padMax(this.value, 31);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
+                    <input type="number" value="${month || '01'}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, 12);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})">
+                </td>
                 <td><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
                 <td><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
                 <td class="actions">
@@ -241,6 +272,7 @@
             const notified = cells[4].getElementsByTagName('input')[0].checked;
 
             row.innerHTML = createInputFields(id, name, description, day, month, notify, notified, false);
+            row.classList.add('editing');
         }
 
         function cancelEdit(id, name, description, day, month, notify) {
@@ -298,7 +330,7 @@
             newRow.innerHTML = createInputFields('0', '', '', '', '', true, false, true);
 
             hideAddButton();
-            updateRowDisplay();
+            // updateRowDisplay();
         }
         function hideAddButton() {
             addButton.classList.add(hiddenClass);
@@ -311,12 +343,13 @@
             saveButton.classList.add(hiddenClass);
             cancelButton.classList.add(hiddenClass);
         }
-        
+
         function updateRow(rowElementId, response) {
             const newRow = document.getElementById(rowElementId);
             response.json().then((res) => {
                 newRow.id = `occurrence-${res.id}`;
                 newRow.innerHTML = createRow(res.id, res.name, res.description, res.day, res.month, res.notify, res.notified);
+                newRow.classList.remove('editing');
                 updateRowDisplay()
             });
         }
@@ -328,6 +361,11 @@
             updateRowDisplay();
         }
 
+        function parseDateString(now, dateString) {
+            const [day, month] = dateString.split('/').map((x) => Number(x));
+            return new Date(now.getFullYear(), month - 1, day, 23, 59, 59);
+        }
+
         function findNextOccurrence() {
             if (currentNext !== null) {
                 currentNext.classList.remove('next');
@@ -336,23 +374,21 @@
             const occurrenceRows = Array.from(mainTable.querySelectorAll("tr[id]:not(#occurrence-none):not(#new-occurrence)"));
             const occurrences = occurrenceRows.map((row) => {
                 const tds = Array.from(row.getElementsByTagName('td'));
-                
+
                 const id = row.id.split('-')[1];
-
                 const dateString = tds.find((td) => td.getAttribute('data-field') === 'date').innerText;
-                const [day, month] = dateString.split('/').map((x) => Number(x));
-                const date = new Date(now.getFullYear(), month - 1, day, 23, 59, 59);
+                const date = parseDateString(now, dateString);
 
-                return {id, date}
+                return { id, date }
             });
 
-            const deltas = occurrences.map((x) => ({...x, distance: x.date - now})).filter((x) => x.distance > 0);
+            const deltas = occurrences.map((x) => ({ ...x, distance: x.date - now })).filter((x) => x.distance > 0);
             if (deltas.length == 0) return;
 
             const distances = deltas.map((x) => x.distance);
             const minDistance = Math.min(...distances);
             const minDelta = deltas.find((x) => x.distance == minDistance);
-            
+
             currentNext = occurrenceRows.find((row) => row.id === `occurrence-${minDelta.id}`);
             currentNext.classList.add('next');
         }
