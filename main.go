@@ -34,7 +34,7 @@ const (
 	dbFile                    = "occurrences.db"
 	defaultNotificationWindow = 3
 	defaultSleepDuration      = 1
-	defaultPort               = 3000
+	defaultPort               = "3000"
 )
 
 var (
@@ -80,6 +80,9 @@ func loadEnv() {
 	log.Println("Sleep duration:", SleepDuration)
 
 	port = os.Getenv("PORT")
+	if port == "" {
+		port = defaultPort
+	}
 }
 
 func main() {
