@@ -252,6 +252,10 @@
             `;
         }
 
+        function escapeQuotes(str) {
+            return str.replace(/'/g, "\\'");
+        }
+
         function createInputFields(id, name, description, day, month, year, notify, notified, isNew) {
             const myName = name || '';
             const myDescription = description || '';
@@ -271,7 +275,7 @@
                 <td class="actions">
                     ${isNew ? '' : `
                     <i class="fas fa-save" title="Save" onclick="saveOccurrence(${id})"></i>
-                    <i class="fas fa-times" title="Cancel" onclick="cancelEdit(${id}, '${name}', '${description}', ${day}, ${month}, ${notify})"></i>
+                    <i class="fas fa-times" title="Cancel" onclick="cancelEdit(${id}, '${escapeQuotes(name)}', '${escapeQuotes(description)}', ${day}, ${month}, ${year}, ${notify})"></i>
                     `}
                 </td>
             `;
