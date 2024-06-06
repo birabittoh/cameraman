@@ -1,13 +1,19 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
+
+const errJson = "{\"error\": %s}"
+
+func returnError(w http.ResponseWriter, err error, status int) {
+	http.Error(w, fmt.Sprintf(errJson, err.Error()), status)
+}
 
 func validateDate(month, day uint, year *uint) error {
 	if month < 1 || month > 12 {
@@ -35,17 +41,17 @@ func validateDate(month, day uint, year *uint) error {
 	return nil
 }
 
-func updateOccurrence(c *gin.Context, input Occurrence) {
+func updateOccurrence(w http.ResponseWriter, input Occurrence) {
 	var occurrence Occurrence
 	if err := db.First(&occurrence, input.ID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		returnError(w, err, http.StatusBadRequest)
 		return
 	}
 
 	// Update existing record with new values
 	if input.Day != 0 || input.Month != 0 {
 		if err := validateDate(input.Month, input.Day, input.Year); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			returnError(w, err, http.StatusBadRequest)
 			return
 		}
 		occurrence.Day = input.Day
@@ -61,45 +67,50 @@ func updateOccurrence(c *gin.Context, input Occurrence) {
 	occurrence.Notify = input.Notify
 	occurrence.Notified = input.Notified
 	db.Save(&occurrence)
-	c.JSON(http.StatusOK, occurrence)
+	json.NewEncoder(w).Encode(occurrence)
 }
 
-func addOccurrence(c *gin.Context) {
+func addOccurrence(w http.ResponseWriter, r *http.Request) {
 	var input Occurrence
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		returnError(w, err, http.StatusBadRequest)
 		return
 	}
 
 	if input.ID != 0 {
-		updateOccurrence(c, input)
+		updateOccurrence(w, input)
 		return
 	}
 
 	if err := validateDate(input.Month, input.Day, input.Year); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		returnError(w, err, http.StatusBadRequest)
 		return
 	}
 
 	db.Create(&input)
-	c.JSON(http.StatusOK, input)
+	json.NewEncoder(w).Encode(input)
 }
 
-func getOccurrences(c *gin.Context) {
+func getOccurrences(w http.ResponseWriter, r *http.Request) {
 	var occurrences []Occurrence
 	db.Find(&occurrences)
-	c.JSON(http.StatusOK, occurrences)
+	json.NewEncoder(w).Encode(occurrences)
 }
 
-func deleteOccurrence(c *gin.Context) {
-	id := c.Param("id")
+func deleteOccurrence(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseUint(r.PathValue("id"), 10, 64)
+	if err != nil {
+		returnError(w, err, http.StatusBadRequest)
+		return
+	}
+
 	var occurrence Occurrence
 
 	if err := db.First(&occurrence, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Occurrence not found"})
+		returnError(w, err, http.StatusNotFound)
 		return
 	}
 
 	db.Delete(&occurrence)
-	c.JSON(http.StatusOK, gin.H{"message": "Occurrence deleted"})
+	w.WriteHeader(http.StatusNoContent)
 }

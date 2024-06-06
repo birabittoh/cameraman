@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -39,7 +39,7 @@ const (
 
 var (
 	db   *gorm.DB
-	port int
+	port string
 )
 
 func initDB() {
@@ -79,11 +79,7 @@ func loadEnv() {
 	}
 	log.Println("Sleep duration:", SleepDuration)
 
-	port, err = strconv.Atoi(os.Getenv("PORT"))
-	if err != nil {
-		port = defaultPort
-	}
-	log.Println("Port:", port)
+	port = os.Getenv("PORT")
 }
 
 func main() {
@@ -93,11 +89,14 @@ func main() {
 
 	go CheckOccurrences()
 
-	router := gin.Default()
-	router.POST("/occurrences", addOccurrence)
-	router.GET("/occurrences", getOccurrences)
-	router.DELETE("/occurrences/:id", deleteOccurrence)
-	router.GET("/", ShowIndexPage)
+	http.HandleFunc("GET /", ShowIndexPage)
 
-	router.Run(fmt.Sprintf(":%d", port))
+	http.HandleFunc("GET /occurrences", getOccurrences)
+	http.HandleFunc("POST /occurrences", addOccurrence)
+	http.HandleFunc("DELETE /occurrences/{id}", deleteOccurrence)
+
+	log.Println("Starting server at port " + port + "...")
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		fmt.Println("Server failed to start:", err)
+	}
 }

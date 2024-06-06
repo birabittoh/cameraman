@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net/http"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 func calcYear(currentYear, year uint) uint {
@@ -37,7 +36,7 @@ func ParseTemplates() {
 	}
 }
 
-func ShowIndexPage(c *gin.Context) {
+func ShowIndexPage(w http.ResponseWriter, r *http.Request) {
 	var occurrences []Occurrence
 	db.Order("month, day, name").Find(&occurrences)
 
@@ -49,9 +48,9 @@ func ShowIndexPage(c *gin.Context) {
 		CurrentYear: uint(time.Now().Year()),
 	}
 
-	err := indexTemplate.Execute(c.Writer, data)
+	err := indexTemplate.Execute(w, data)
 	if err != nil {
 		log.Println(err.Error())
-		c.String(500, "Internal Server Error")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
