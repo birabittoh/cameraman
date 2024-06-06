@@ -117,7 +117,7 @@
 </head>
 
 <body>
-    <h1>Ricorrenze</h1>
+    <h1>Ricorrenzes</h1>
     <table id="main-table">
         <tr>
             <th data-field="name">Nome</th>
@@ -262,6 +262,8 @@
             const myDay = day || '01';
             const myMonth = month || '01';
             const myYear = year || '';
+            console.log(notified);
+            console.log(typeof notified);
             return `
                 <td data-field="name" data-value="${myName}"><input class="big-input" type="text" value="${myName}" id="name-${id}" onkeydown="handleInputKeyDown(event, ${id})" autocomplete="off"></td>
                 <td data-field="description" data-value="${myDescription}"><input class="big-input" type="text" value="${myDescription}" id="description-${id}" onkeydown="handleInputKeyDown(event, ${id})" autocomplete="off"></td>
@@ -270,12 +272,12 @@
                     <input type="number" step="1" value="${myMonth}" id="month-${id}" class="small-input" min="1" max="12" onchange="this.value = padMax(this.value, this.max);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id})"> /
                     <input type="number" step="1" value="${myYear}" id="year-${id}" class="big-input" min="1000" max="${currentYear}" onchange="this.value = padYear(this.value, this.max, this.min);" onclick="this.select()" onkeydown="handleInputKeyDown(event, ${id}, ${isNew})">
                 </td>
-                <td data-field="notify" data-value="${notify}"><input type="checkbox" id="notify-${id}" ${notify ? 'checked' : ''}></td>
-                <td data-field="notified" data-value="${notified}"><input type="checkbox" id="notified-${id}" ${notified ? 'checked' : 'disabled'}></td>
+                <td data-field="notify" data-value="${notify}"><input type="checkbox" id="notify-${id}"${notify === 'true' ? ' checked' : ''}></td>
+                <td data-field="notified" data-value="${notified}"><input type="checkbox" id="notified-${id}"${notified === 'true' ? ' checked' : ' disabled'}></td>
                 <td class="actions">
                     ${isNew ? '' : `
                     <i class="fas fa-save" title="Save" onclick="saveOccurrence(${id})"></i>
-                    <i class="fas fa-times" title="Cancel" onclick="cancelEdit(${id}, '${escapeQuotes(name)}', '${escapeQuotes(description)}', ${day}, ${month}, ${year}, ${notify})"></i>
+                    <i class="fas fa-times" title="Cancel" onclick="cancelEdit(${id}, '${escapeQuotes(name)}', '${escapeQuotes(description)}', ${day}, ${month}, ${year}, ${notify}, ${notified})"></i>
                     `}
                 </td>
             `;
@@ -295,9 +297,9 @@
             row.classList.add('editing');
         }
 
-        function cancelEdit(id, name, description, day, month, year, notify) {
+        function cancelEdit(id, name, description, day, month, year, notify, notified) {
             const row = document.getElementById(`occurrence-${id}`);
-            row.innerHTML = createRow(id, name, description, day, month, year, notify);
+            row.innerHTML = createRow(id, name, description, day, month, year, notify, notified);
         }
 
         function saveOccurrence(id) {
@@ -347,7 +349,7 @@
         function addNewOccurrenceRow() {
             const newRow = mainTable.insertRow(-1);
             newRow.id = 'new-occurrence';
-            newRow.innerHTML = createInputFields('0', '', '', '', '', '', true, false, true);
+            newRow.innerHTML = createInputFields('0', '', '', '', '', '', "true", "false", true);
 
             hideAddButton();
         }
