@@ -20,13 +20,14 @@ type Occurrence struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	Day         uint   `json:"day"`
-	Month       uint   `json:"month"`
-	Year        *uint  `json:"year"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Notify      bool   `json:"notify"`
-	Notified    bool   `json:"notified"`
+	Day          uint   `json:"day"`
+	Month        uint   `json:"month"`
+	Year         *uint  `json:"year"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Notify       bool   `json:"notify"`
+	Notified     bool   `json:"notified"`
+	NotifiedSoft bool   `json:"notified_soft"`
 }
 
 const (

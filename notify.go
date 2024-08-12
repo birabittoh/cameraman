@@ -26,11 +26,12 @@ type Result struct {
 }
 
 var (
-	NotificationWindow int
-	SleepDuration      time.Duration
-	telegramToken      string
-	chatID             string
-	threadID           string
+	NotificationWindow     int
+	SoftNotificationWindow int
+	SleepDuration          time.Duration
+	telegramToken          string
+	chatID                 string
+	threadID               string
 )
 
 func sendPostRequest(url string, payload map[string]interface{}) (*http.Response, error) {
@@ -54,7 +55,7 @@ func sendPostRequest(url string, payload map[string]interface{}) (*http.Response
 	return resp, nil
 }
 
-func notifyTelegram(occurrence Occurrence) error {
+func notifyTelegram(occurrence Occurrence, soft bool) error {
 	log.Println("Sending notification for occurrence", occurrence.ID)
 	var message string
 	if occurrence.Year != nil {
@@ -103,6 +104,10 @@ func notifyTelegram(occurrence Occurrence) error {
 		return fmt.Errorf("telegram API error: %v", r)
 	}
 
+	if soft {
+		return nil
+	}
+
 	msgId := r.Result.MessageID
 
 	// Prepare the request to pin the message
@@ -131,12 +136,13 @@ func notifyTelegram(occurrence Occurrence) error {
 	return nil
 }
 
-func resetNotifications() {
-	if err := db.Model(&Occurrence{}).Where("notified = ?", true).Update("notified", false).Error; err != nil {
+func resetNotifications(notified_column string) (err error) {
+	if err = db.Model(&Occurrence{}).Where(notified_column+" = ?", true).Update(notified_column, false).Error; err != nil {
 		log.Printf("Failed to reset notifications: %v", err)
 	} else {
 		log.Println("Notifications have been reset for the new year.")
 	}
+	return
 }
 
 func initNotifications() error {
@@ -151,6 +157,46 @@ func initNotifications() error {
 	return nil
 }
 
+func check(notificationWindowDays int, soft bool) (err error) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	endWindow := today.AddDate(0, 0, notificationWindowDays)
+
+	notified_column := "notified"
+	if soft {
+		notified_column += "_soft"
+	}
+
+	var occurrences []Occurrence
+	db.Where(notified_column+" = ? AND ((month = ? AND day >= ?) OR (month = ? AND day <= ?))",
+		false, today.Month(), today.Day(), endWindow.Month(), endWindow.Day()).Find(&occurrences)
+
+	for _, occurrence := range occurrences {
+		occurrenceDate := time.Date(today.Year(), time.Month(occurrence.Month), int(occurrence.Day), 0, 0, 0, 0, time.Local)
+		if occurrenceDate.Before(today) || occurrenceDate.After(endWindow) || !occurrence.Notify || occurrence.Notified {
+			continue
+		}
+
+		err = notifyTelegram(occurrence, soft)
+		if err != nil {
+			return err
+		}
+
+		err = db.Model(&Occurrence{}).Where("id = ?", occurrence.ID).Update(notified_column, true).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	// Check if New Year's Eve is within the next sleep cycle
+	nextCheck := now.Add(SleepDuration)
+	if (now.Month() == 12 && now.Day() == 31) && (nextCheck.Month() == 1 && nextCheck.Day() == 1) {
+		resetNotifications(notified_column)
+	}
+
+	return
+}
+
 func CheckOccurrences() {
 	err := initNotifications()
 	if err != nil {
@@ -160,34 +206,9 @@ func CheckOccurrences() {
 
 	for {
 		log.Println("Checking for new occurrences.")
-		now := time.Now()
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
-		endWindow := today.AddDate(0, 0, NotificationWindow)
 
-		var occurrences []Occurrence
-		db.Where("notified = ? AND ((month = ? AND day >= ?) OR (month = ? AND day <= ?))",
-			false, today.Month(), today.Day(), endWindow.Month(), endWindow.Day()).Find(&occurrences)
-
-		for _, occurrence := range occurrences {
-			occurrenceDate := time.Date(today.Year(), time.Month(occurrence.Month), int(occurrence.Day), 0, 0, 0, 0, time.Local)
-			if occurrenceDate.Before(today) || occurrenceDate.After(endWindow) || !occurrence.Notify || occurrence.Notified {
-				continue
-			}
-
-			err := notifyTelegram(occurrence)
-			if err != nil {
-				log.Println(err.Error())
-				return
-			}
-			occurrence.Notified = true
-			db.Save(&occurrence)
-		}
-
-		// Check if New Year's Eve is within the next sleep cycle
-		nextCheck := now.Add(SleepDuration)
-		if (now.Month() == 12 && now.Day() == 31) && (nextCheck.Month() == 1 && nextCheck.Day() == 1) {
-			resetNotifications()
-		}
+		check(NotificationWindow, false)
+		check(SoftNotificationWindow, true)
 
 		time.Sleep(SleepDuration)
 	}
