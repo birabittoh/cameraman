@@ -31,11 +31,12 @@ type Occurrence struct {
 }
 
 const (
-	dataDir                   = "data"
-	dbFile                    = "occurrences.db"
-	defaultNotificationWindow = 3
-	defaultSleepDuration      = 1
-	defaultPort               = "3000"
+	dataDir                       = "data"
+	dbFile                        = "occurrences.db"
+	defaultNotificationWindow     = 5
+	defaultSoftNotificationWindow = 2
+	defaultSleepDuration          = 1
+	defaultPort                   = "3000"
 )
 
 var (
@@ -71,6 +72,12 @@ func loadEnv() {
 		NotificationWindow = defaultNotificationWindow
 	}
 	log.Println("Notification window (days):", NotificationWindow)
+
+	SoftNotificationWindow, err = strconv.Atoi(os.Getenv("DAYS_BEFORE_SOFT_NOTIFICATION"))
+	if err != nil {
+		SoftNotificationWindow = defaultSoftNotificationWindow
+	}
+	log.Println("Soft notification window (days):", SoftNotificationWindow)
 
 	loadedSleepDuration, err := strconv.Atoi(os.Getenv("HOURS_BETWEEN_CHECKS"))
 	if err != nil {
