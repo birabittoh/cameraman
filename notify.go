@@ -32,6 +32,9 @@ var (
 	telegramToken          string
 	chatID                 string
 	threadID               string
+
+	sendMessageUrl = fmt.Sprintf("%s%s/sendMessage", baseUrl, telegramToken)
+	pinMessageUrl  = fmt.Sprintf("%s%s/pinChatMessage", baseUrl, telegramToken)
 )
 
 func sendPostRequest(url string, payload map[string]interface{}) (*http.Response, error) {
@@ -55,18 +58,7 @@ func sendPostRequest(url string, payload map[string]interface{}) (*http.Response
 	return resp, nil
 }
 
-func notifyTelegram(occurrence Occurrence, soft bool) error {
-	log.Println("Sending notification for occurrence", occurrence.ID)
-	var message string
-	if occurrence.Year != nil {
-		years := time.Now().Year() - int(*occurrence.Year)
-		message = fmt.Sprintf(msgFormatYear, occurrence.Day, occurrence.Month, *occurrence.Year, years, occurrence.Name, occurrence.Description)
-	} else {
-		message = fmt.Sprintf(msgFormat, occurrence.Day, occurrence.Month, occurrence.Name, occurrence.Description)
-	}
-
-	url := fmt.Sprintf("%s%s/sendMessage", baseUrl, telegramToken)
-
+func sendTelegramMessage(message string) (messageID int, err error) {
 	// Create the payload
 	payload := map[string]interface{}{
 		"chat_id":              chatID,
@@ -77,9 +69,50 @@ func notifyTelegram(occurrence Occurrence, soft bool) error {
 	}
 
 	// Send the POST request
-	resp, err := sendPostRequest(url, payload)
+	resp, err := sendPostRequest(sendMessageUrl, payload)
 	if err != nil {
 		log.Printf("Failed to send notification: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Failed to read response body: %v", err)
+		return
+	}
+
+	log.Printf("Notification sent: %s, Response: %s", message, string(bodyBytes))
+
+	// Decode the JSON response
+	var r Response
+	err = json.Unmarshal(bodyBytes, &r)
+	if err != nil {
+		log.Printf("Failed to decode response: %v", err)
+		return
+	}
+
+	if !r.Ok {
+		log.Printf("Telegram API returned an error: %v", r)
+		err = fmt.Errorf("telegram API error: %v", r)
+		return
+	}
+
+	return r.Result.MessageID, nil
+}
+
+func pinTelegramMessage(messageID int) (err error) {
+	// Prepare the request to pin the message
+	payload := map[string]interface{}{
+		"chat_id":              chatID,
+		"message_id":           messageID,
+		"disable_notification": false,
+	}
+
+	// Send the POST request to pin the message
+	resp, err := sendPostRequest(pinMessageUrl, payload)
+	if err != nil {
+		log.Printf("Failed to pin message: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -90,50 +123,30 @@ func notifyTelegram(occurrence Occurrence, soft bool) error {
 		return err
 	}
 
-	log.Printf("Notification sent: %s, Response: %s", message, string(bodyBytes))
+	log.Printf("Message pinned: %d, Response: %s", messageID, string(bodyBytes))
+	return
+}
 
-	// Decode the JSON response
-	var r Response
-	if err := json.Unmarshal(bodyBytes, &r); err != nil {
-		log.Printf("Failed to decode response: %v", err)
-		return err
-	}
-
-	if !r.Ok {
-		log.Printf("Telegram API returned an error: %v", r)
-		return fmt.Errorf("telegram API error: %v", r)
+func notifyTelegram(occurrence Occurrence, soft bool) error {
+	log.Println("Sending notification for occurrence", occurrence.ID)
+	var message string
+	if occurrence.Year != nil {
+		years := time.Now().Year() - int(*occurrence.Year)
+		message = fmt.Sprintf(msgFormatYear, occurrence.Day, occurrence.Month, *occurrence.Year, years, occurrence.Name, occurrence.Description)
+	} else {
+		message = fmt.Sprintf(msgFormat, occurrence.Day, occurrence.Month, occurrence.Name, occurrence.Description)
 	}
 
 	if soft {
 		return nil
 	}
 
-	msgId := r.Result.MessageID
-
-	// Prepare the request to pin the message
-	url = fmt.Sprintf("%s%s/pinChatMessage", baseUrl, telegramToken)
-	payload = map[string]interface{}{
-		"chat_id":              chatID,
-		"message_id":           msgId,
-		"disable_notification": false,
-	}
-
-	// Send the POST request to pin the message
-	resp, err = sendPostRequest(url, payload)
+	msgId, err := sendTelegramMessage(message)
 	if err != nil {
-		log.Printf("Failed to pin message: %v", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err = io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("Failed to read response body: %v", err)
 		return err
 	}
 
-	log.Printf("Message pinned: %s, Response: %s", message, string(bodyBytes))
-	return nil
+	return pinTelegramMessage(msgId)
 }
 
 func resetNotifications(notified_column string) (err error) {
