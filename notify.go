@@ -33,8 +33,8 @@ var (
 	chatID                 string
 	threadID               string
 
-	sendMessageUrl = fmt.Sprintf("%s%s/sendMessage", baseUrl, telegramToken)
-	pinMessageUrl  = fmt.Sprintf("%s%s/pinChatMessage", baseUrl, telegramToken)
+	sendMessageUrl string
+	pinMessageUrl  string
 )
 
 func sendPostRequest(url string, payload map[string]interface{}) (*http.Response, error) {
@@ -167,6 +167,10 @@ func initNotifications() error {
 		log.Println("Warning: you should set your Telegram Bot token and chat id in .env, otherwise you won't get notifications!")
 		return errors.New("empty telegramToken or chatId")
 	}
+
+	sendMessageUrl = fmt.Sprintf("%s%s/sendMessage", baseUrl, telegramToken)
+	pinMessageUrl = fmt.Sprintf("%s%s/pinChatMessage", baseUrl, telegramToken)
+
 	return nil
 }
 
