@@ -1,4 +1,4 @@
-module github.com/BiRabittoh/cameraman
+module github.com/birabittoh/cameraman
 
 go 1.23
 
