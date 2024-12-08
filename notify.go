@@ -137,13 +137,13 @@ func notifyTelegram(occurrence Occurrence, soft bool) error {
 		message = fmt.Sprintf(msgFormat, occurrence.Day, occurrence.Month, occurrence.Name, occurrence.Description)
 	}
 
-	if soft {
-		return nil
-	}
-
 	msgId, err := sendTelegramMessage(message)
 	if err != nil {
 		return err
+	}
+
+	if soft {
+		return nil
 	}
 
 	return pinTelegramMessage(msgId)
@@ -190,7 +190,11 @@ func check(notificationWindowDays int, soft bool) (err error) {
 
 	for _, occurrence := range occurrences {
 		occurrenceDate := time.Date(today.Year(), time.Month(occurrence.Month), int(occurrence.Day), 0, 0, 0, 0, time.Local)
-		if occurrenceDate.Before(today) || occurrenceDate.After(endWindow) || !occurrence.Notify || occurrence.Notified {
+		if occurrenceDate.Before(today) || occurrenceDate.After(endWindow) || !occurrence.Notify {
+			continue
+		}
+
+		if !soft && occurrence.Notified {
 			continue
 		}
 
