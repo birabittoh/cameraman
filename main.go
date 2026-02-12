@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -40,8 +41,9 @@ const (
 )
 
 var (
-	db   *gorm.DB
-	port string
+	db           *gorm.DB
+	port         string
+	allowedHosts []string
 )
 
 func initDB() {
@@ -91,6 +93,16 @@ func loadEnv() {
 	if port == "" {
 		port = defaultPort
 	}
+
+	if hosts := os.Getenv("ALLOWED_HOSTS"); hosts != "" {
+		for _, h := range strings.Split(hosts, ",") {
+			h = strings.TrimSpace(h)
+			if h != "" {
+				allowedHosts = append(allowedHosts, h)
+			}
+		}
+	}
+	log.Println("Allowed hosts:", allowedHosts)
 }
 
 func main() {
@@ -107,7 +119,28 @@ func main() {
 	http.HandleFunc("DELETE /occurrences/{id}", deleteOccurrence)
 
 	log.Println("Starting server at port " + port + "...")
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, corsMiddleware(http.DefaultServeMux)); err != nil {
 		fmt.Println("Server failed to start:", err)
 	}
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		for _, h := range allowedHosts {
+			if origin == h {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				break
+			}
+		}
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
