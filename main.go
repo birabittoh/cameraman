@@ -60,7 +60,7 @@ func initDB() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	db.AutoMigrate(&Occurrence{})
+	db.AutoMigrate(&Occurrence{}, &MonthlySummary{})
 }
 
 func loadEnv() {
