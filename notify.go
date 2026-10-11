@@ -58,12 +58,12 @@ func sendPostRequest(url string, payload map[string]interface{}) (*http.Response
 	return resp, nil
 }
 
-func sendTelegramMessage(message string) (messageID int, err error) {
+func sendTelegramMessage(message string, parseMode string) (messageID int, err error) {
 	// Create the payload
 	payload := map[string]interface{}{
 		"chat_id":              chatID,
 		"text":                 message,
-		"parse_mode":           "markdown",
+		"parse_mode":           parseMode,
 		"message_thread_id":    threadID,
 		"disable_notification": true,
 	}
@@ -137,7 +137,7 @@ func notifyTelegram(occurrence Occurrence, soft bool) error {
 		message = fmt.Sprintf(msgFormat, occurrence.Day, occurrence.Month, occurrence.Name, occurrence.Description)
 	}
 
-	msgId, err := sendTelegramMessage(message)
+	msgId, err := sendTelegramMessage(message, "markdown")
 	if err != nil {
 		return err
 	}
@@ -230,6 +230,7 @@ func CheckOccurrences() {
 
 		check(NotificationWindow, false)
 		check(SoftNotificationWindow, true)
+		checkMonthlySummary()
 
 		time.Sleep(SleepDuration)
 	}
